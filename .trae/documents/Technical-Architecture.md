@@ -1,296 +1,783 @@
-# AI背单词应用 - 技术架构文档
+# AI背单词应用 - 完整技术架构文档
 
-## 1. 架构设计
+## 1. 系统架构设计
 
-### 1.1 系统架构图
+### 1.1 整体架构图
 ```mermaid
 flowchart TB
-    subgraph Frontend
+    subgraph Client
         A[React SPA] --> B[Zustand Store]
         A --> C[React Router]
         A --> D[Tailwind CSS]
     end
 
-    subgraph DataLayer
-        B --> E[localStorage]
-        F[Word Data] --> B
+    subgraph Backend
+        E[Express.js Server] --> F[PostgreSQL Database]
+        E --> G[Redis Cache]
+        E --> H[OpenRouter API]
+        E --> I[JWT Auth]
     end
 
     subgraph ExternalServices
-        G[OpenRouter API] --> H[AI Model: free]
+        H --> J[AI Models]
     end
 
-    A --> G
-    B --> F
+    Client <-->|REST API / WebSocket| Backend
+    Backend <-->|Data| PostgreSQL
+    Backend <-->|Cache| Redis
+    Backend <-->|AI Inference| OpenRouter
 ```
 
 ### 1.2 技术栈详情
+
 | 层级 | 技术选型 | 说明 |
 |------|----------|------|
-| 前端框架 | React 18 | 组件化开发，生态成熟 |
-| 类型系统 | TypeScript | 类型安全，开发体验好 |
-| 构建工具 | Vite | 快速开发启动，热更新快 |
-| 样式方案 | Tailwind CSS | 原子化CSS，快速开发 |
-| 路由管理 | React Router v6 | SPA路由解决方案 |
-| 状态管理 | Zustand | 轻量级，API简洁 |
-| 数据存储 | localStorage | 本地持久化，无需后端 |
-| AI服务 | OpenRouter API | 支持免费模型 |
+| **前端** | React 18 + TypeScript | 组件化开发 |
+| **构建** | Vite | 快速HMR |
+| **样式** | Tailwind CSS | 原子化CSS |
+| **状态** | Zustand | 轻量状态管理 |
+| **路由** | React Router v6 | SPA路由 |
+| **后端** | Node.js + Express.js | RESTful API |
+| **数据库** | PostgreSQL | 关系型数据 |
+| **缓存** | Redis | 会话和热点数据 |
+| **ORM** | Prisma | 类型安全数据库访问 |
+| **认证** | JWT + bcrypt | 无状态认证 |
+| **AI服务** | OpenRouter API | 调用free模型 |
+| **部署** | Docker | 容器化部署 |
 
 ## 2. 项目结构
 
 ```
 /workspace
-├── index.html
-├── package.json
-├── vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-├── .env.example              # 环境变量示例
-└── src/
-    ├── main.tsx              # 入口文件
-    ├── App.tsx               # 根组件
-    ├── index.css             # 全局样式
-    ├── components/           # 可复用组件
-    │   ├── ui/               # 基础UI组件
-    │   │   ├── Button.tsx
-    │   │   ├── Card.tsx
-    │   │   └── Progress.tsx
-    │   ├── layout/           # 布局组件
-    │   │   ├── Sidebar.tsx
-    │   │   └── MobileNav.tsx
-    │   ├── WordCard.tsx      # 单词卡片
-    │   ├── ProgressRing.tsx   # 进度环
-    │   └── StatsChart.tsx    # 统计图表
-    ├── pages/                # 页面组件
-    │   ├── Home.tsx          # 首页/仪表盘
-    │   ├── Learn.tsx         # 学习页面
-    │   ├── Review.tsx         # 复习页面
-    │   ├── Wordbook.tsx       # 词库管理
-    │   └── Profile.tsx        # 个人中心
-    ├── stores/               # 状态管理
-    │   ├── userStore.ts      # 用户状态
-    │   └── wordStore.ts      # 单词状态
-    ├── services/             # API服务
-    │   └── aiService.ts      # OpenRouter AI服务
-    ├── hooks/                # 自定义Hook
-    │   ├── useLocalStorage.ts
-    │   └── useSpacedRepetition.ts
-    ├── utils/                # 工具函数
-    │   ├── storage.ts
-    │   └── spacedRepetition.ts
-    ├── types/                # TypeScript类型
-    │   └── index.ts
-    └── data/                 # 静态数据
-        └── words.ts          # 初始单词库
+├── client/                    # 前端项目
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── components/
+│   │   │   ├── ui/
+│   │   │   ├── layout/
+│   │   │   ├── WordCard.tsx
+│   │   │   ├── ProgressRing.tsx
+│   │   │   └── StatsChart.tsx
+│   │   ├── pages/
+│   │   │   ├── Home.tsx
+│   │   │   ├── Learn.tsx
+│   │   │   ├── Review.tsx
+│   │   │   ├── Wordbook.tsx
+│   │   │   ├── Login.tsx
+│   │   │   └── Profile.tsx
+│   │   ├── stores/
+│   │   ├── services/
+│   │   ├── hooks/
+│   │   ├── utils/
+│   │   ├── types/
+│   │   └── data/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+│
+├── server/                    # 后端项目
+│   ├── src/
+│   │   ├── main.ts
+│   │   ├── routes/
+│   │   │   ├── auth.ts
+│   │   │   ├── words.ts
+│   │   │   ├── learning.ts
+│   │   │   └── ai.ts
+│   │   ├── controllers/
+│   │   ├── services/
+│   │   ├── middlewares/
+│   │   ├── models/
+│   │   ├── utils/
+│   │   └── config/
+│   ├── prisma/
+│   │   └── schema.prisma
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── docker-compose.yml
+├── .env.example
+└── README.md
 ```
 
-## 3. 路由定义
+## 3. 数据库设计
 
-| 路由 | 页面 | 功能描述 |
-|------|------|----------|
-| `/` | Home | 首页仪表盘，显示进度和统计 |
-| `/learn` | Learn | 单词学习模块 |
-| `/review` | Review | 复习模块 |
-| `/wordbook` | Wordbook | 词库选择和管理 |
-| `/profile` | Profile | 个人中心和设置 |
+### 3.1 ER图
+```mermaid
+erDiagram
+    USER ||--o{ WORD : learns
+    USER ||--o{ LEARNING_RECORD : has
+    USER ||--o{ WORD_BOOK : owns
+    WORD ||--o{ LEARNING_RECORD : has
+    WORD_BOOK ||--o{ WORD : contains
 
-## 4. API定义
+    USER {
+        uuid id PK
+        string email UK
+        string password_hash
+        string name
+        int daily_goal
+        int streak
+        timestamp created_at
+        timestamp last_active
+    }
 
-### 4.1 OpenRouter AI服务
+    WORD_BOOK {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string category
+        timestamp created_at
+    }
 
-```typescript
-// 请求格式
-interface AIRequest {
-  model: string;          // "openrouter/free"
-  messages: {
-    role: "system" | "user" | "assistant";
-    content: string;
-  }[];
-  max_tokens?: number;
-  temperature?: number;
-}
+    WORD {
+        uuid id PK
+        string word
+        string phonetic
+        string meaning
+        string part_of_speech
+        string[] examples
+        string ai_memory
+        string ai_image_url
+        enum mastery_level
+        timestamp next_review
+        int review_count
+        float ease_factor
+    }
 
-// 响应格式
-interface AIResponse {
-  id: string;
-  choices: {
-    message: {
-      content: string;
-    };
-    finish_reason: string;
-  }[];
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
+    LEARNING_RECORD {
+        uuid id PK
+        uuid user_id FK
+        uuid word_id FK
+        enum status
+        int response_time
+        timestamp created_at
+    }
 }
 ```
 
-### 4.2 AI提示词模板
+### 3.2 表结构定义
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  dailyGoal    Int      @default(20) @map("daily_goal")
+  streak       Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastActive   DateTime @default(now()) @map("last_active")
+
+  wordBooks      WordBook[]
+  learningRecords LearningRecord[]
+  words          UserWord[]
+
+  @@map("users")
+}
+
+model WordBook {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  category  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  words UserWord[]
+
+  @@map("word_books")
+}
+
+model Word {
+  id            String   @id @default(uuid())
+  word          String
+  phonetic      String
+  meaning       String
+  partOfSpeech  String   @map("part_of_speech")
+  examples      String[]
+  aiMemory      String?  @map("ai_memory")
+  aiImageUrl    String?  @map("ai_image_url")
+  masteryLevel  MasteryLevel @default(NEW) @map("mastery_level")
+  nextReview    DateTime? @map("next_review")
+  reviewCount   Int      @default(0) @map("review_count")
+  easeFactor    Float    @default(2.5) @map("ease_factor")
+
+  userWords     UserWord[]
+  records       LearningRecord[]
+
+  @@unique([word])
+  @@map("words")
+}
+
+model UserWord {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  wordId      String   @map("word_id")
+  wordBookId  String?  @map("word_book_id")
+  masteryLevel MasteryLevel @default(NEW) @map("mastery_level")
+  nextReview  DateTime? @map("next_review")
+  reviewCount Int      @default(0) @map("review_count")
+  easeFactor  Float    @default(2.5) @map("ease_factor")
+  addedAt     DateTime @default(now()) @map("added_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word     Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  wordBook WordBook? @relation(fields: [wordBookId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, wordId])
+  @@map("user_words")
+}
+
+model LearningRecord {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  wordId       String   @map("word_id")
+  status       ReviewStatus
+  responseTime Int      @map("response_time")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@map("learning_records")
+}
+
+enum MasteryLevel {
+  NEW
+  LEARNING
+  MASTERED
+}
+
+enum ReviewStatus {
+  KNOWN
+  FUZZY
+  UNKNOWN
+}
+```
+
+## 4. API设计
+
+### 4.1 RESTful API 端点
+
+| 方法 | 端点 | 描述 | 认证 |
+|------|------|------|------|
+| **认证相关** |
+| POST | /api/auth/register | 用户注册 | 否 |
+| POST | /api/auth/login | 用户登录 | 否 |
+| POST | /api/auth/logout | 登出 | 是 |
+| GET | /api/auth/me | 获取当前用户 | 是 |
+| **单词相关** |
+| GET | /api/words | 获取单词列表 | 是 |
+| GET | /api/words/:id | 获取单词详情 | 是 |
+| POST | /api/words/ai/generate | AI生成记忆内容 | 是 |
+| POST | /api/words/ai/image | AI生成单词图片 | 是 |
+| **学习相关** |
+| GET | /api/learning/today | 获取今日学习任务 | 是 |
+| GET | /api/learning/review | 获取待复习单词 | 是 |
+| POST | /api/learning/submit | 提交学习结果 | 是 |
+| GET | /api/learning/stats | 获取学习统计 | 是 |
+| **词库相关** |
+| GET | /api/wordbooks | 获取词库列表 | 是 |
+| POST | /api/wordbooks | 创建词库 | 是 |
+| POST | /api/wordbooks/:id/words | 添加单词到词库 | 是 |
+| DELETE | /api/wordbooks/:id/words/:wordId | 从词库移除单词 | 是 |
+| **用户相关** |
+| GET | /api/user/profile | 获取用户资料 | 是 |
+| PUT | /api/user/profile | 更新用户资料 | 是 |
+| PUT | /api/user/settings | 更新用户设置 | 是 |
+
+### 4.2 API请求/响应示例
 
 ```typescript
-// 记忆口诀生成
-const MEMORY_PROMPT = `请为单词 "{word}" 生成一个简短有趣的记忆口诀/联想句子，帮助记忆这个单词及其意思"{meaning}"。要求：
+// POST /api/auth/login
+// Request
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "name": "User",
+      "dailyGoal": 20,
+      "streak": 5
+    }
+  }
+}
+
+// POST /api/learning/submit
+// Request
+{
+  "wordId": "uuid",
+  "status": "KNOWN", // KNOWN | FUZZY | UNKNOWN
+  "responseTime": 2500 // milliseconds
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "wordId": "uuid",
+    "nextReview": "2024-01-15T10:00:00Z",
+    "masteryLevel": "LEARNING",
+    "wordsLearned": 25,
+    "streak": 6
+  }
+}
+
+// POST /api/words/ai/generate
+// Request
+{
+  "word": "ephemeral",
+  "meaning": "lasting for a very short time"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "memory": "e-ph-e-m-e-ral: 短暂的，像蜉蝣一样朝生暮死，美好却转瞬即逝~",
+    "examples": [
+      "Fad diets are ephemeral and often unhealthy. 流行饮食法只是昙花一现，而且往往不健康。",
+      "The ephemeral beauty of cherry blossoms makes them precious. 樱花短暂的美丽使它们格外珍贵。"
+    ]
+  }
+}
+```
+
+## 5. 后端架构
+
+### 5.1 控制器-服务-仓储模式
+
+```mermaid
+flowchart LR
+    A[Routes] --> B[Controllers]
+    B --> C[Services]
+    C --> D[Repositories]
+    D --> E[Database]
+    C --> F[External APIs]
+```
+
+### 5.2 核心服务实现
+
+```typescript
+// src/services/wordService.ts
+import { Word, PrismaClient } from '@prisma/client';
+import { openaiService } from './openaiService';
+
+const prisma = new PrismaClient();
+
+export class WordService {
+  async generateAIMemory(word: string, meaning: string): Promise<string> {
+    const prompt = `请为单词 "${word}" (意思: ${meaning}) 生成一个简短有趣的记忆口诀。
+要求：
 1. 朗朗上口，易于记忆
 2. 包含单词在生活中的应用场景
-3. 限制在50字以内
+3. 限制在80字以内
 4. 用中文回复`;
 
-// 例句生成
-const EXAMPLE_PROMPT = `请为单词 "{word}" 生成3个例句，要求：
-1. 包含单词的准确使用
-2. 句子难度适中
-3. 用中文翻译解释
-4. 每条限制在60字以内`;
-
-// 图片生成提示词
-const IMAGE_PROMPT = `Create a memorable, visually striking illustration that represents the word "{word}" meaning "{meaning}". Style: modern minimalist with warm colors. The image should help remember this vocabulary word.`;
-```
-
-## 5. 数据模型
-
-### 5.1 核心数据结构
-
-```typescript
-// 单词实体
-interface Word {
-  id: string;
-  word: string;              // 英文单词
-  phonetic: string;          // 音标
-  meaning: string;           // 中文释义
-  partOfSpeech: string;      // 词性
-  examples: string[];        // 例句
-  aiMemory?: string;         // AI记忆口诀
-  aiImage?: string;          // AI生成图片URL
-  mastery: MasteryLevel;     // 掌握程度
-  nextReview: number;       // 下次复习时间戳
-  reviewCount: number;      // 复习次数
-  lastReview?: number;      // 上次复习时间
-  easeFactor: number;        // 间隔重复的难度因子
-}
-
-type MasteryLevel = 'new' | 'learning' | 'mastered';
-
-// 用户数据
-interface UserData {
-  id: string;
-  name: string;
-  dailyGoal: number;         // 每日目标
-  streak: number;            // 连续天数
-  wordsLearned: number;      // 已学单词数
-  wordsReviewed: number;     // 已复习单词数
-  createdAt: number;         // 创建时间
-  lastActive: number;        // 最后活跃时间
-  settings: UserSettings;
-}
-
-interface UserSettings {
-  dailyReminder: boolean;
-  reminderTime: string;
-  soundEnabled: boolean;
-  theme: 'light' | 'dark';
-}
-
-// 学习记录
-interface LearningRecord {
-  wordId: string;
-  status: 'known' | 'fuzzy' | 'unknown';
-  timestamp: number;
-  responseTime: number;      // 反应时间
-}
-```
-
-### 5.2 localStorage存储键
-
-| 键名 | 数据类型 | 描述 |
-|------|----------|------|
-| `vocab_user` | UserData | 用户数据 |
-| `vocab_words` | Word[] | 用户单词本 |
-| `vocab_records` | LearningRecord[] | 学习记录 |
-| `vocab_settings` | UserSettings | 用户设置 |
-
-## 6. 核心算法
-
-### 6.1 间隔重复算法 (Spaced Repetition)
-
-基于SM-2算法的简化版本：
-
-```typescript
-function calculateNextReview(word: Word, quality: number): number {
-  // quality: 0-5 (0=完全忘记, 5=完全记住)
-  let { easeFactor, interval, reviewCount } = word;
-
-  if (quality < 3) {
-    // 忘记：从1天开始
-    interval = 1;
-    reviewCount = 0;
-  } else {
-    if (reviewCount === 0) {
-      interval = 1;
-    } else if (reviewCount === 1) {
-      interval = 6;
-    } else {
-      interval = Math.round(interval * easeFactor);
-    }
-    reviewCount++;
+    return await openaiService.generateText(prompt);
   }
 
-  // 更新难度因子
-  easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-  easeFactor = Math.max(1.3, easeFactor);
+  async generateExamples(word: string, meaning: string): Promise<string[]> {
+    const prompt = `请为单词 "${word}" (意思: ${meaning}) 生成3个例句。
+要求：
+1. 句子自然流畅
+2. 包含中文翻译
+3. 每条限制在80字以内`;
 
-  const nextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
-  return nextReview;
+    const response = await openaiService.generateText(prompt);
+    return response.split('\n').filter(s => s.trim());
+  }
+
+  async calculateNextReview(
+    currentEaseFactor: number,
+    reviewCount: number,
+    quality: number // 0-5
+  ): Promise<{ nextReview: Date; newEaseFactor: number }> {
+    let interval: number;
+    let newEaseFactor = currentEaseFactor;
+
+    if (quality < 3) {
+      interval = 1;
+    } else {
+      if (reviewCount === 0) interval = 1;
+      else if (reviewCount === 1) interval = 6;
+      else interval = Math.round(reviewCount * currentEaseFactor);
+
+      newEaseFactor = Math.max(
+        1.3,
+        currentEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+      );
+    }
+
+    const nextReview = new Date(Date.now() + interval * 24 * 60 * 60 * 1000);
+
+    return { nextReview, newEaseFactor };
+  }
+
+  async submitLearningResult(
+    userId: string,
+    wordId: string,
+    status: 'KNOWN' | 'FUZZY' | 'UNKNOWN',
+    responseTime: number
+  ) {
+    const userWord = await prisma.userWord.findUnique({
+      where: { userId_wordId: { userId, wordId } }
+    });
+
+    if (!userWord) throw new Error('Word not found in user vocabulary');
+
+    const quality = status === 'KNOWN' ? 5 : status === 'FUZZY' ? 3 : 1;
+    const { nextReview, newEaseFactor } = await this.calculateNextReview(
+      userWord.easeFactor,
+      userWord.reviewCount,
+      quality
+    );
+
+    const masteryLevel = quality >= 4 ? 'MASTERED' : 'LEARNING';
+
+    await prisma.$transaction([
+      prisma.userWord.update({
+        where: { userId_wordId: { userId, wordId } },
+        data: {
+          nextReview,
+          easeFactor: newEaseFactor,
+          reviewCount: { increment: 1 },
+          masteryLevel
+        }
+      }),
+      prisma.learningRecord.create({
+        data: {
+          userId,
+          wordId,
+          status,
+          responseTime
+        }
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          wordsLearned: { increment: status === 'KNOWN' ? 1 : 0 },
+          streak: { increment: 1 }
+        }
+      })
+    ]);
+
+    return { nextReview, masteryLevel };
+  }
 }
+
+export const wordService = new WordService();
 ```
 
-### 6.2 每日复习队列生成
+### 5.3 OpenRouter服务
 
 ```typescript
-function getReviewQueue(words: Word[]): Word[] {
-  const now = Date.now();
-  return words
-    .filter(word => word.nextReview <= now && word.mastery !== 'new')
-    .sort((a, b) => a.nextReview - b.nextReview);
+// src/services/openaiService.ts
+import axios from 'axios';
+
+const OPENROUTER_CONFIG = {
+  baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+  model: 'openrouter/free',
+};
+
+export class OpenAIService {
+  async generateText(prompt: string, maxTokens = 500): Promise<string> {
+    try {
+      const response = await axios.post(
+        `${OPENROUTER_CONFIG.baseUrl}/chat/completions`,
+        {
+          model: OPENROUTER_CONFIG.model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.7
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${OPENROUTER_CONFIG.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return response.data.choices[0]?.message?.content || '';
+    } catch (error) {
+      console.error('OpenRouter API Error:', error);
+      throw new Error('AI generation failed');
+    }
+  }
 }
+
+export const openaiService = new OpenAIService();
 ```
 
-## 7. 环境配置
+## 6. 前端架构
 
-### 7.1 环境变量 (.env)
+### 6.1 状态管理 (Zustand)
+
+```typescript
+// stores/userStore.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  dailyGoal: number;
+  streak: number;
+}
+
+interface UserState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  updateProfile: (data: Partial<User>) => void;
+}
+
+export const useUserStore = create<UserState>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      login: async (email, password) => {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const { data } = await response.json();
+        set({
+          user: data.user,
+          token: data.token,
+          isAuthenticated: true
+        });
+      },
+      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      updateProfile: (data) => set((state) => ({
+        user: state.user ? { ...state.user, ...data } : null
+      }))
+    }),
+    { name: 'vocab-user' }
+  )
+);
+```
+
+### 6.2 API服务层
+
+```typescript
+// services/api.ts
+const API_BASE = '/api';
+
+class ApiService {
+  private token: string | null = null;
+
+  setToken(token: string) {
+    this.token = token;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'API request failed');
+    }
+
+    return data;
+  }
+
+  async login(email: string, password: string) {
+    return this.request<{ token: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+  }
+
+  async getTodayTask() {
+    return this.request<LearningTask>('/learning/today');
+  }
+
+  async submitLearning(wordId: string, status: string, responseTime: number) {
+    return this.request<LearningResult>('/learning/submit', {
+      method: 'POST',
+      body: JSON.stringify({ wordId, status, responseTime })
+    });
+  }
+
+  async generateAIMemory(word: string, meaning: string) {
+    return this.request<{ memory: string; examples: string[] }>('/words/ai/generate', {
+      method: 'POST',
+      body: JSON.stringify({ word, meaning })
+    });
+  }
+}
+
+export const api = new ApiService();
+```
+
+## 7. 部署架构
+
+### 7.1 Docker配置
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  client:
+    build: ./client
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+    networks:
+      - app-network
+
+  server:
+    build: ./server
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/vocab
+      - REDIS_URL=redis://cache:6379
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    depends_on:
+      - db
+      - cache
+    networks:
+      - app-network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=vocab
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  cache:
+    image: redis:7-alpine
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+### 7.2 环境变量
 
 ```env
-VITE_OPENROUTER_API_KEY=your_api_key_here
-VITE_OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-VITE_APP_TITLE=AI背单词
+# .env
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/vocab
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# OpenRouter
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxx
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+
+# Server
+PORT=5000
+NODE_ENV=development
 ```
 
-### 7.2 OpenRouter配置
+## 8. 安全考虑
 
-```typescript
-const OPENROUTER_CONFIG = {
-  baseUrl: import.meta.env.VITE_OPENROUTER_BASE_URL,
-  apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
-  model: 'openrouter/free',
-  defaultMaxTokens: 500,
-  defaultTemperature: 0.7,
-};
+### 8.1 认证与授权
+- JWT令牌认证，设置合理的过期时间
+- 密码使用bcrypt加密存储
+- API端点权限校验
+- 防止SQL注入和XSS攻击
+
+### 8.2 数据安全
+- HTTPS传输
+- 敏感数据加密
+- 数据库定期备份
+- 用户数据隔离
+
+## 9. 性能优化
+
+### 9.1 前端优化
+- React组件懒加载
+- 图片懒加载和CDN加速
+- 状态管理选择器优化
+- 请求去重和防抖
+
+### 9.2 后端优化
+- Redis缓存热点数据
+- 数据库索引优化
+- API响应压缩
+- 连接池管理
+
+## 10. 开发规范
+
+### 10.1 Git分支策略
+```
+main          → 生产环境
+develop       → 开发主分支
+feature/*     → 功能分支
+fix/*         → 修复分支
 ```
 
-## 8. 性能优化
-
-### 8.1 图片加载策略
-- AI生成图片使用懒加载
-- 图片缓存到localStorage
-- 提供占位图加载
-
-### 8.2 API调用优化
-- 批量生成记忆内容
-- 防抖处理AI请求
-- 请求缓存避免重复调用
-
-### 8.3 状态管理优化
-- Zustand选择器优化重渲染
-- 合理拆分store
-- 避免不必要的状态更新
+### 10.2 代码规范
+- ESLint + Prettier统一代码风格
+- TypeScript严格模式
+- 提交信息规范化 (Conventional Commits)
+- API响应格式统一
