@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  avatar       String?
+  dailyGoal    Int      @default(20) @map("daily_goal")
+  streak       Int      @default(0)
+  wordsLearned Int      @default(0) @map("words_learned")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastActive   DateTime @default(now()) @map("last_active")
+
+  wordBooks      WordBook[]
+  learningRecords LearningRecord[]
+  userWords      UserWord[]
+
+  @@map("users")
+}
+
+model WordBook {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  category  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  words UserWord[]
+
+  @@map("word_books")
+}
+
+model Word {
+  id           String       @id @default(uuid())
+  word         String       @unique
+  phonetic     String
+  meaning      String
+  partOfSpeech String       @map("part_of_speech")
+  examples     String[]
+  aiMemory     String?      @map("ai_memory")
+  aiImageUrl   String?      @map("ai_image_url")
+  masteryLevel MasteryLevel @default(NEW) @map("mastery_level")
+  nextReview   DateTime?    @map("next_review")
+  reviewCount  Int          @default(0) @map("review_count")
+  easeFactor   Float        @default(2.5) @map("ease_factor")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  userWords UserWord[]
+  records   LearningRecord[]
+
+  @@map("words")
+}
+
+model UserWord {
+  id           String       @id @default(uuid())
+  userId       String       @map("user_id")
+  wordId       String       @map("word_id")
+  wordBookId   String?      @map("word_book_id")
+  masteryLevel MasteryLevel @default(NEW) @map("mastery_level")
+  nextReview   DateTime?    @map("next_review")
+  reviewCount  Int          @default(0) @map("review_count")
+  easeFactor   Float        @default(2.5) @map("ease_factor")
+  addedAt      DateTime     @default(now()) @map("added_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word     Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  wordBook WordBook? @relation(fields: [wordBookId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, wordId])
+  @@map("user_words")
+}
+
+model LearningRecord {
+  id           String        @id @default(uuid())
+  userId       String        @map("user_id")
+  wordId       String        @map("word_id")
+  status       ReviewStatus
+  responseTime Int           @map("response_time")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@map("learning_records")
+}
+
+enum MasteryLevel {
+  NEW
+  LEARNING
+  MASTERED
+}
+
+enum ReviewStatus {
+  KNOWN
+  FUZZY
+  UNKNOWN
+}
